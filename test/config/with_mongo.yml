@@ -1,0 +1,9 @@
+mongodb:
+  url: "mongodb://127.0.0.1:27017/api_umbrella_test"
+  options:
+    server:
+      socketOptions:
+        keepAlive: 500
+    replset:
+      socketOptions:
+        keepAlive: 500
