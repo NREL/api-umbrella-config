@@ -19,7 +19,6 @@ before(function(done) {
 
 // Close the mongo connection cleanly after each run.
 after(function(done) {
-  console.info('CLOSING CONNECT');
   mongoose.testConnection.close(function() {
     done();
   });

@@ -1,0 +1,10 @@
+port: 99
+mongodb:
+  url: "mongodb://127.0.0.1:7777/api_umbrella_test"
+  options:
+    server:
+      socketOptions:
+        keepAlive: 500
+    replset:
+      socketOptions:
+        keepAlive: 500

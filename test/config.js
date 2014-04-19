@@ -165,6 +165,21 @@ describe('config', function() {
     });
   });
 
+  describe('invalid mongo connection', function() {
+    beforeEach(function(done) {
+      this.config.setFiles([
+        path.resolve(__dirname, 'config/test.yml'),
+        path.resolve(__dirname, 'config/with_invalid_mongo.yml'),
+      ]);
+
+      this.config.ready(done);
+    });
+
+    it('still reads file-based data normally', function() {
+      this.config.get('port').should.eql(99);
+    });
+  });
+
   describe('runtime config', function() {
     beforeEach(function() {
       this.config.setFiles([
@@ -185,7 +200,7 @@ describe('config', function() {
       this.config.get('port').should.eql(80);
     });
 
-    it('fetches mongo data if connection details are set', function(done) {
+    it('fetches mongo data after connection details are set', function(done) {
       ConfigVersion.remove({}, function() {
         var version = new ConfigVersion({
           version: new Date(2014, 1, 1, 0, 0, 0),
@@ -196,16 +211,20 @@ describe('config', function() {
 
         version.save();
         this.config.ready(function() {
-          this.config.get('port').should.eql(71);
-          done();
+          this.config.get('port').should.eql(80);
+
+          this.config.setRuntime({
+            mongodb: {
+              url: 'mongodb://127.0.0.1:27017/api_umbrella_test'
+            },
+          });
+
+          this.config.on('reload', function() {
+            this.config.get('port').should.eql(71);
+            done();
+          }.bind(this));
         }.bind(this));
       }.bind(this));
-
-      this.config.setRuntime({
-        mongodb: {
-          url: 'mongodb://127.0.0.1:27017/api_umbrella_test'
-        },
-      });
     });
   });
 
@@ -220,7 +239,7 @@ describe('config', function() {
       }, 50);
     });
 
-    it('doesn\'t fire if no mongodb connection config is present', function(done) {
+    it('fires if no mongodb connection config is present', function(done) {
       var spy = sinon.spy();
       this.config.on('ready', spy);
 
@@ -229,7 +248,7 @@ describe('config', function() {
       ]);
 
       setTimeout(function() {
-        spy.callCount.should.eql(0);
+        spy.callCount.should.eql(1);
         done();
       }, 50);
     });
@@ -276,6 +295,20 @@ describe('config', function() {
       this.config.setFiles([
         path.resolve(__dirname, 'config/with_mongo.yml'),
       ]);
+    });
+
+    it('fires if an invalid mongodb connection config is given', function(done) {
+      var spy = sinon.spy();
+      this.config.on('ready', spy);
+
+      this.config.setFiles([
+        path.resolve(__dirname, 'config/with_invalid_mongo.yml'),
+      ]);
+
+      setTimeout(function() {
+        spy.callCount.should.eql(1);
+        done();
+      }, 50);
     });
   });
 
