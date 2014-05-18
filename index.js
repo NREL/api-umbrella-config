@@ -1,3 +1,5 @@
+'use strict';
+
 var Config = require('./lib/config'),
     Loader = require('./lib/loader');
 
@@ -9,4 +11,4 @@ module.exports = {
   load: function(path) {
     return new Config(path);
   },
-}
+};

@@ -1,8 +1,0 @@
-port: 80
-address:
-  city: Denver
-  state: PA
-ips:
-  - 1.1.1.1
-  - 1.1.1.2
-  - 1.1.1.3
