@@ -25,10 +25,12 @@ describe('loader', function() {
 
   describe('multiple config file', function() {
     beforeEach(function(done) {
-      config.loader([
-        path.resolve(__dirname, 'config/test.yml'),
-        path.resolve(__dirname, 'config/overrides.yml'),
-      ], function(error, loader) {
+      config.loader({
+        paths: [
+          path.resolve(__dirname, 'config/test.yml'),
+          path.resolve(__dirname, 'config/overrides.yml'),
+        ],
+      }, function(error, loader) {
         this.loader = loader;
         this.data = yaml.safeLoad(fs.readFileSync(this.loader.runtimeFile).toString());
         done();
@@ -68,10 +70,12 @@ describe('loader', function() {
       });
 
       version.save(function() {
-        config.loader([
-          path.resolve(__dirname, 'config/test.yml'),
-          path.resolve(__dirname, 'config/with_mongo.yml'),
-        ], function(error, loader) {
+        config.loader({
+          paths: [
+            path.resolve(__dirname, 'config/test.yml'),
+            path.resolve(__dirname, 'config/with_mongo.yml'),
+          ],
+        }, function(error, loader) {
           this.loader = loader;
           this.data = yaml.safeLoad(fs.readFileSync(this.loader.runtimeFile).toString());
           done();
@@ -130,10 +134,12 @@ describe('loader', function() {
 
   describe('invalid mongo connection', function() {
     beforeEach(function(done) {
-      config.loader([
-        path.resolve(__dirname, 'config/test.yml'),
-        path.resolve(__dirname, 'config/with_invalid_mongo.yml'),
-      ], function(error, loader) {
+      config.loader({
+        paths: [
+          path.resolve(__dirname, 'config/test.yml'),
+          path.resolve(__dirname, 'config/with_invalid_mongo.yml'),
+        ],
+      }, function(error, loader) {
         this.loader = loader;
         this.data = yaml.safeLoad(fs.readFileSync(this.loader.runtimeFile).toString());
         done();
@@ -145,10 +151,87 @@ describe('loader', function() {
     });
   });
 
+  describe('config defaults', function() {
+    beforeEach(function(done) {
+      ConfigVersion.remove({}, function() {
+        done();
+      });
+    });
+
+    it('only used when file or mongo values are missing', function(done) {
+      var version = new ConfigVersion({
+        version: new Date(2014, 1, 1, 0, 0, 0),
+        config: {
+          port: 71,
+          address: {
+            zip: '80401',
+          },
+        },
+      });
+
+      version.save(function() {
+        config.loader({
+          paths: [
+            path.resolve(__dirname, 'config/test.yml'),
+            path.resolve(__dirname, 'config/with_mongo.yml'),
+          ],
+          defaults: {
+            address: {
+              city: 'Beverly Hills',
+              zip: '90210',
+              country: 'United States',
+            },
+          },
+        }, function(error, loader) {
+          this.loader = loader;
+          this.data = yaml.safeLoad(fs.readFileSync(this.loader.runtimeFile).toString());
+          this.data.address.state.should.eql('CO');
+          this.data.address.zip.should.eql('80401');
+          this.data.address.country.should.eql('United States');
+          done();
+        }.bind(this));
+      }.bind(this));
+    });
+  });
+
+  describe('config overrides', function() {
+    beforeEach(function(done) {
+      ConfigVersion.remove({}, function() {
+        done();
+      });
+    });
+
+    it('takes precedence over file and mongo config', function(done) {
+      var version = new ConfigVersion({
+        version: new Date(2014, 1, 1, 0, 0, 0),
+        config: {
+          port: 71,
+        },
+      });
+
+      version.save(function() {
+        config.loader({
+          paths: [
+            path.resolve(__dirname, 'config/test.yml'),
+            path.resolve(__dirname, 'config/with_mongo.yml'),
+          ],
+          overrides: {
+            port: 99,
+          },
+        }, function(error, loader) {
+          this.loader = loader;
+          this.data = yaml.safeLoad(fs.readFileSync(this.loader.runtimeFile).toString());
+          this.data.port.should.eql(99);
+          done();
+        }.bind(this));
+      }.bind(this));
+    });
+  });
+
   describe('ready event', function() {
     it('doesn\'t fire when no data is present', function(done) {
       var spy = sinon.spy();
-      this.loader = config.loader([], spy);
+      this.loader = config.loader({}, spy);
 
       setTimeout(function() {
         spy.callCount.should.eql(0);
@@ -158,9 +241,11 @@ describe('loader', function() {
 
     it('fires if no mongodb connection config is present', function(done) {
       var spy = sinon.spy();
-      this.loader = config.loader([
-        path.resolve(__dirname, 'config/test.yml'),
-      ], spy);
+      this.loader = config.loader({
+        paths: [
+          path.resolve(__dirname, 'config/test.yml'),
+        ],
+      }, spy);
 
       setTimeout(function() {
         spy.callCount.should.eql(1);
@@ -170,9 +255,11 @@ describe('loader', function() {
 
     it('fires after reading the mongodb data', function(done) {
       var spy = sinon.spy();
-      this.loader = config.loader([
-        path.resolve(__dirname, 'config/with_mongo.yml'),
-      ], spy);
+      this.loader = config.loader({
+        paths: [
+          path.resolve(__dirname, 'config/with_mongo.yml'),
+        ],
+      }, spy);
 
       setTimeout(function() {
         spy.callCount.should.eql(1);
@@ -182,9 +269,11 @@ describe('loader', function() {
 
     it('fires if an invalid mongodb connection config is given', function(done) {
       var spy = sinon.spy();
-      this.loader = config.loader([
-        path.resolve(__dirname, 'config/with_invalid_mongo.yml'),
-      ], spy);
+      this.loader = config.loader({
+        paths: [
+          path.resolve(__dirname, 'config/with_invalid_mongo.yml'),
+        ],
+      }, spy);
 
       setTimeout(function() {
         spy.callCount.should.eql(1);
@@ -200,10 +289,12 @@ describe('loader', function() {
         fs.unlinkSync(this.tempPath);
       }
 
-      config.loader([
-        path.resolve(__dirname, 'config/test.yml'),
-        this.tempPath,
-      ], function(error, loader) {
+      config.loader({
+        paths: [
+          path.resolve(__dirname, 'config/test.yml'),
+          this.tempPath,
+        ],
+      }, function(error, loader) {
         this.loader = loader;
         this.data = yaml.safeLoad(fs.readFileSync(this.loader.runtimeFile).toString());
         done();
@@ -245,9 +336,11 @@ describe('loader', function() {
 
   describe('runtime file', function() {
     beforeEach(function(done) {
-      config.loader([
-        path.resolve(__dirname, 'config/test.yml'),
-      ], function(error, loader) {
+      config.loader({
+        paths: [
+          path.resolve(__dirname, 'config/test.yml'),
+        ],
+      }, function(error, loader) {
         this.loader = loader;
         done();
       }.bind(this));
@@ -271,9 +364,11 @@ describe('loader', function() {
     beforeEach(function(done) {
       process.env.API_UMBRELLA_RUNTIME_CONFIG = path.resolve(__dirname, 'config/.runtime.yml');
 
-      config.loader([
-        path.resolve(__dirname, 'config/test.yml'),
-      ], function(error, loader) {
+      config.loader({
+        paths: [
+          path.resolve(__dirname, 'config/test.yml'),
+        ],
+      }, function(error, loader) {
         this.loader = loader;
         done();
       }.bind(this));
