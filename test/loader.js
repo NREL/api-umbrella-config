@@ -2,7 +2,8 @@
 
 require('./test_helper');
 
-var config = require('../index'),
+var async = require('async'),
+    config = require('../index'),
     fs = require('fs'),
     mongoose = require('mongoose'),
     os = require('os'),
@@ -365,6 +366,35 @@ describe('loader', function() {
 
     it('allows overriding the runtime path via the API_UMBRELLA_RUNTIME_CONFIG environment variable', function() {
       this.loader.runtimeFile.should.eql(path.resolve(__dirname, 'config/.runtime.yml'));
+    });
+  });
+
+  describe('close', function() {
+    it('closes the mongo connection on each loader when multiple loaders are created', function(done) {
+      var paths = [
+        path.resolve(__dirname, 'config/test.yml'),
+        path.resolve(__dirname, 'config/with_mongo.yml'),
+      ];
+
+      async.times(5, function(index, next) {
+        config.loader({
+          paths: paths,
+        }, function(error, loader) {
+          next(error, loader);
+        });
+      }, function(error, loaders) {
+        loaders.length.should.eql(5);
+        async.each(loaders, function(loader, callback) {
+          // Ensure each loader's mongo connection gets closed.
+          loader.mongoConnection.on('close', callback);
+          loader.close();
+
+          // Cleanup
+          if(fs.existsSync(loader.runtimeFile)) {
+            fs.unlinkSync(loader.runtimeFile);
+          }
+        }, done);
+      });
     });
   });
 });
