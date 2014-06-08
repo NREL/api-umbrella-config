@@ -13,29 +13,41 @@ var config = require('../index'),
 var ConfigVersion = mongoose.testConnection.model('ConfigVersion');
 
 describe('loader', function() {
-  afterEach(function(done) {
-    this.loader.close(done);
-  });
-
-  afterEach(function() {
-    if(fs.existsSync(this.loader.runtimeFile)) {
-      fs.unlinkSync(this.loader.runtimeFile);
-    }
-  });
-
-  describe('multiple config file', function() {
+  function setupLoader(paths) {
     beforeEach(function(done) {
+      if(this.extraLoaderPaths) {
+        paths = paths.concat(this.extraLoaderPaths);
+      }
+
       config.loader({
-        paths: [
-          path.resolve(__dirname, 'config/test.yml'),
-          path.resolve(__dirname, 'config/overrides.yml'),
-        ],
+        paths: paths,
       }, function(error, loader) {
         this.loader = loader;
         this.data = yaml.safeLoad(fs.readFileSync(this.loader.runtimeFile).toString());
         done();
       }.bind(this));
     });
+
+    cleanupLoader();
+  }
+
+  function cleanupLoader() {
+    afterEach(function(done) {
+      this.loader.close(done);
+    });
+
+    afterEach(function() {
+      if(fs.existsSync(this.loader.runtimeFile)) {
+        fs.unlinkSync(this.loader.runtimeFile);
+      }
+    });
+  }
+
+  describe('multiple config file', function() {
+    setupLoader([
+      path.resolve(__dirname, 'config/test.yml'),
+      path.resolve(__dirname, 'config/overrides.yml'),
+    ]);
 
     it('overrides simple values', function() {
       this.data.port.should.eql(90);
@@ -69,19 +81,13 @@ describe('loader', function() {
         },
       });
 
-      version.save(function() {
-        config.loader({
-          paths: [
-            path.resolve(__dirname, 'config/test.yml'),
-            path.resolve(__dirname, 'config/with_mongo.yml'),
-          ],
-        }, function(error, loader) {
-          this.loader = loader;
-          this.data = yaml.safeLoad(fs.readFileSync(this.loader.runtimeFile).toString());
-          done();
-        }.bind(this));
-      }.bind(this));
+      version.save(done);
     });
+
+    setupLoader([
+      path.resolve(__dirname, 'config/test.yml'),
+      path.resolve(__dirname, 'config/with_mongo.yml'),
+    ]);
 
     it('overrides default config with mongodb data', function() {
       this.data.port.should.eql(71);
@@ -133,18 +139,10 @@ describe('loader', function() {
   });
 
   describe('invalid mongo connection', function() {
-    beforeEach(function(done) {
-      config.loader({
-        paths: [
-          path.resolve(__dirname, 'config/test.yml'),
-          path.resolve(__dirname, 'config/with_invalid_mongo.yml'),
-        ],
-      }, function(error, loader) {
-        this.loader = loader;
-        this.data = yaml.safeLoad(fs.readFileSync(this.loader.runtimeFile).toString());
-        done();
-      }.bind(this));
-    });
+    setupLoader([
+      path.resolve(__dirname, 'config/test.yml'),
+      path.resolve(__dirname, 'config/with_invalid_mongo.yml'),
+    ]);
 
     it('still reads file-based data normally', function() {
       this.data.port.should.eql(99);
@@ -157,6 +155,8 @@ describe('loader', function() {
         done();
       });
     });
+
+    cleanupLoader();
 
     it('only used when file or mongo values are missing', function(done) {
       var version = new ConfigVersion({
@@ -201,6 +201,8 @@ describe('loader', function() {
       });
     });
 
+    cleanupLoader();
+
     it('takes precedence over file and mongo config', function(done) {
       var version = new ConfigVersion({
         version: new Date(2014, 1, 1, 0, 0, 0),
@@ -229,6 +231,8 @@ describe('loader', function() {
   });
 
   describe('ready event', function() {
+    cleanupLoader();
+
     it('doesn\'t fire when no data is present', function(done) {
       var spy = sinon.spy();
       this.loader = config.loader({}, spy);
@@ -283,23 +287,18 @@ describe('loader', function() {
   });
 
   describe('reload', function() {
-    beforeEach(function(done) {
+    beforeEach(function() {
       this.tempPath = path.resolve(__dirname, 'config/temp.yml');
       if(fs.existsSync(this.tempPath)) {
         fs.unlinkSync(this.tempPath);
       }
 
-      config.loader({
-        paths: [
-          path.resolve(__dirname, 'config/test.yml'),
-          this.tempPath,
-        ],
-      }, function(error, loader) {
-        this.loader = loader;
-        this.data = yaml.safeLoad(fs.readFileSync(this.loader.runtimeFile).toString());
-        done();
-      }.bind(this));
+      this.extraLoaderPaths = [this.tempPath];
     });
+
+    setupLoader([
+      path.resolve(__dirname, 'config/test.yml'),
+    ]);
 
     it('reloads file data on command', function(done) {
       this.data.port.should.eql(80);
@@ -335,21 +334,13 @@ describe('loader', function() {
   });
 
   describe('runtime file', function() {
-    beforeEach(function(done) {
-      config.loader({
-        paths: [
-          path.resolve(__dirname, 'config/test.yml'),
-        ],
-      }, function(error, loader) {
-        this.loader = loader;
-        done();
-      }.bind(this));
-    });
+    setupLoader([
+      path.resolve(__dirname, 'config/test.yml'),
+    ]);
 
     it('generates a runtime file in the temp directory by default', function() {
       this.loader.runtimeFile.should.match(new RegExp('^' + os.tmpdir() + '/api-umbrella-runtime.+\\.yml$'));
     });
-
 
     it('has owner read-write and group-read permissions', function() {
       /* jshint bitwise: false */
@@ -357,22 +348,16 @@ describe('loader', function() {
       var mode = stat.mode & parseInt('07777', 8);
       mode.should.eql(parseInt('0640', 8));
     });
-
   });
 
   describe('runtime file - custom path', function() {
-    beforeEach(function(done) {
+    beforeEach(function() {
       process.env.API_UMBRELLA_RUNTIME_CONFIG = path.resolve(__dirname, 'config/.runtime.yml');
-
-      config.loader({
-        paths: [
-          path.resolve(__dirname, 'config/test.yml'),
-        ],
-      }, function(error, loader) {
-        this.loader = loader;
-        done();
-      }.bind(this));
     });
+
+    setupLoader([
+      path.resolve(__dirname, 'config/test.yml'),
+    ]);
 
     afterEach(function() {
       delete process.env.API_UMBRELLA_RUNTIME_CONFIG;
