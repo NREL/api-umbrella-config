@@ -34,11 +34,15 @@ describe('loader', function() {
 
   function cleanupLoader() {
     afterEach(function(done) {
-      this.loader.close(done);
+      if(this.loader) {
+        this.loader.close(done);
+      } else {
+        done();
+      }
     });
 
     afterEach(function() {
-      if(fs.existsSync(this.loader.runtimeFile)) {
+      if(this.loader && fs.existsSync(this.loader.runtimeFile)) {
         fs.unlinkSync(this.loader.runtimeFile);
       }
     });
@@ -96,7 +100,7 @@ describe('loader', function() {
 
     it('polls for mongodb changes', function(done) {
       this.data.port.should.eql(71);
-      this.loader.once('reload', function() {
+      this.loader.once('change', function() {
         this.data = yaml.safeLoad(fs.readFileSync(this.loader.runtimeFile).toString());
         this.data.port.should.eql(72);
         done();
@@ -114,7 +118,7 @@ describe('loader', function() {
 
     it('uses the last config version sorted by time', function(done) {
       this.data.port.should.eql(71);
-      this.loader.once('reload', function() {
+      this.loader.once('change', function() {
         this.data = yaml.safeLoad(fs.readFileSync(this.loader.runtimeFile).toString());
         this.data.port.should.eql(73);
         done();
@@ -304,7 +308,7 @@ describe('loader', function() {
     it('reloads file data on command', function(done) {
       this.data.port.should.eql(80);
 
-      this.loader.once('reload', function() {
+      this.loader.once('change', function() {
         this.data = yaml.safeLoad(fs.readFileSync(this.loader.runtimeFile).toString());
         this.data.port.should.eql(85);
 
@@ -318,19 +322,27 @@ describe('loader', function() {
 
     it('only fires when the config values change', function(done) {
       var spy = sinon.spy();
-      this.loader.on('reload', spy);
+      this.loader.on('change', spy);
 
-      fs.writeFileSync(this.tempPath, yaml.dump({ address: { state: 'NY' } }));
-      this.loader.reload();
-      fs.writeFileSync(this.tempPath, yaml.dump({ address: { state: 'NY' } }));
-      this.loader.reload();
-      fs.writeFileSync(this.tempPath, yaml.dump({ address: { state: 'PA' } }));
-      this.loader.reload();
-
-      setTimeout(function() {
-        spy.callCount.should.eql(2);
-        done();
-      }, 50);
+      async.series([
+        function(callback) {
+          fs.writeFileSync(this.tempPath, yaml.dump({ address: { state: 'NY' } }));
+          this.loader.reload(callback);
+        }.bind(this),
+        function(callback) {
+          fs.writeFileSync(this.tempPath, yaml.dump({ address: { state: 'NY' } }));
+          this.loader.reload(callback);
+        }.bind(this),
+        function(callback) {
+          fs.writeFileSync(this.tempPath, yaml.dump({ address: { state: 'PA' } }));
+          this.loader.reload(callback);
+        }.bind(this),
+      ], function() {
+        setTimeout(function() {
+          spy.callCount.should.eql(2);
+          done();
+        }, 50);
+      });
     });
   });
 

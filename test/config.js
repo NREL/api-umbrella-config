@@ -11,6 +11,10 @@ describe('config', function() {
       this.config = config.load(path.resolve(__dirname, 'config/non-existant.yml'));
     });
 
+    afterEach(function(done) {
+      this.config.close(done);
+    });
+
     it('returns an empty object', function() {
       this.config.getAll().should.eql({});
     });
@@ -27,6 +31,10 @@ describe('config', function() {
   describe('single config file', function() {
     beforeEach(function() {
       this.config = config.load(path.resolve(__dirname, 'config/test.yml'));
+    });
+
+    afterEach(function(done) {
+      this.config.close(done);
     });
 
     it('fetches values by key', function() {
