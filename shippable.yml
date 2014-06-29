@@ -5,3 +5,7 @@ services:
   - mongodb
 script:
   - npm test
+notifications:
+  email:
+    on_success: change
+    on_failure: always
