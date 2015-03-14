@@ -1,7 +1,7 @@
 {
   "name": "api-umbrella-config",
   "description": "Library for API Umbrella configuration",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "engines": ">= 0.8.0",
   "author": "Nick Muerdter <nick.muerdter@nrel.gov>",
   "main": "./index",
