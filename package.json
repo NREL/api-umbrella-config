@@ -17,7 +17,7 @@
     "dot-component": "0.1.1",
     "js-yaml": "3.2.1",
     "lodash": "2.4.1",
-    "mongoose": "3.8.15",
+    "mongoose": "3.8.25",
     "object-extend": "0.5.0",
     "temp": "0.8.1"
   },
